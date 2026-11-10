@@ -7,7 +7,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 API = "https://a.eztexting.com/v1"
-SAFETY = "SAFETY: Avoid I-80 between Salt Lake City and Iowa, and I-70 west of Denver. Drive safe."
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SAFETY = open(os.path.join(ROOT, "safety-message.txt"), encoding="utf-8").read().strip()
 
 def call(method, path, body=None):
     auth = base64.b64encode(f"{os.environ['EZ_USER']}:{os.environ['EZ_PASS']}".encode()).decode()
