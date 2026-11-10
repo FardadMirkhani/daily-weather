@@ -3,6 +3,7 @@
 Env: EZ_USER, EZ_PASS (GitHub secrets), IMAGE_URL, and either TO_NUMBER (test) or GROUP_NAME.
 """
 import base64, json, os, sys, urllib.request
+from roads import road_section
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -28,7 +29,9 @@ def main():
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
         sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
     today = datetime.now(ZoneInfo("America/New_York"))
-    text = f"{today:%a %b %-d, %Y}\n{SAFETY}"
+    roads = road_section()
+    text = f"{today:%a %b %-d, %Y}\n" + (roads + "\n\n" if roads else "") + SAFETY
+    text = text[:1500]
     media = call("POST", "/media-files", {"mediaUrl": os.environ["IMAGE_URL"]})
     msg = {"message": text, "mediaFileId": media["id"], "messageType": "MMS"}
     if SUBJECT:
