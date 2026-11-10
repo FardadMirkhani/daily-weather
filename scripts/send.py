@@ -24,7 +24,8 @@ def main():
     today = datetime.now(ZoneInfo("America/New_York"))
     text = f"Daily Weather {today:%a %b %-d}. {SAFETY}"
     media = call("POST", "/media-files", {"mediaUrl": os.environ["IMAGE_URL"]})
-    msg = {"message": text, "mediaFileId": media["id"]}
+    msg = {"message": text, "mediaFileId": media["id"], "messageType": "MMS",
+           "companyName": "Northern Freight Express, Inc"}
     if os.environ.get("TO_NUMBER"):
         msg["toNumbers"] = [os.environ["TO_NUMBER"]]
         msg["message"] = "TEST - " + text
