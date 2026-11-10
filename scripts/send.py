@@ -19,6 +19,8 @@ def call(method, path, body=None):
         return json.loads(r.read() or b"{}")
 
 def main():
+    if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
+        sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
     today = datetime.now(ZoneInfo("America/New_York"))
     text = f"Daily Weather {today:%a %b %-d}. {SAFETY}"
     media = call("POST", "/media-files", {"mediaUrl": os.environ["IMAGE_URL"]})
