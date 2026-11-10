@@ -8,7 +8,12 @@ from zoneinfo import ZoneInfo
 
 API = "https://a.eztexting.com/v1"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAFETY = open(os.path.join(ROOT, "safety-message.txt"), encoding="utf-8").read().strip()
+def read(name):
+    path = os.path.join(ROOT, name)
+    return open(path, encoding="utf-8").read().strip() if os.path.exists(path) else ""
+
+SAFETY = read("safety-message.txt")
+SUBJECT = read("subject-line.txt")  # shown in parentheses at the top; leave the file empty for none
 
 def call(method, path, body=None):
     auth = base64.b64encode(f"{os.environ['EZ_USER']}:{os.environ['EZ_PASS']}".encode()).decode()
@@ -23,10 +28,11 @@ def main():
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
         sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
     today = datetime.now(ZoneInfo("America/New_York"))
-    text = f"Daily Weather {today:%a %b %-d}. {SAFETY}"
+    text = f"{today:%a %b %-d, %Y}\n{SAFETY}"
     media = call("POST", "/media-files", {"mediaUrl": os.environ["IMAGE_URL"]})
-    msg = {"message": text, "mediaFileId": media["id"], "messageType": "MMS",
-           "companyName": "Northern Freight Express, Inc"}
+    msg = {"message": text, "mediaFileId": media["id"], "messageType": "MMS"}
+    if SUBJECT:
+        msg["companyName"] = SUBJECT
     if os.environ.get("TO_NUMBER"):
         msg["toNumbers"] = [os.environ["TO_NUMBER"]]
         msg["message"] = "TEST - " + text
