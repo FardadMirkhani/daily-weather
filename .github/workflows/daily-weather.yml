@@ -4,7 +4,11 @@ on:
   schedule:
     # GitHub cron is UTC and can start late, so run before 8 AM Eastern in both
     # standard and daylight time; the script waits until 8:00 ET to send.
+    # Several tries because GitHub sometimes skips or delays scheduled runs;
+    # only the first one that gets through sends, the rest see today's image and stop.
     - cron: "40 11,12 * * *"
+    - cron: "5,25,45 12,13 * * *"
+    - cron: "5,30 14 * * *"
   workflow_dispatch:
     inputs:
       test_number:
@@ -25,13 +29,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pillow
+      - name: Get latest files
+        run: git pull --ff-only origin main
       - name: Decide whether to run now
         id: gate
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           day=$(TZ=America/New_York date +%F); hour=$(TZ=America/New_York date +%-H)
           if [ -f "images/$day.jpg" ]; then echo "Already sent today"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if [ "$hour" -lt 7 ] || [ "$hour" -gt 9 ]; then echo "Not the morning run (ET hour $hour)"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$hour" -lt 7 ] || [ "$hour" -gt 10 ]; then echo "Not the morning run (ET hour $hour)"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
           now=$(date +%s); target=$(TZ=America/New_York date -d "$day 08:00" +%s)
           if [ "$now" -lt "$target" ]; then sleep $((target - now)); fi
           echo "go=1" >> "$GITHUB_OUTPUT"
@@ -43,9 +49,10 @@ jobs:
           stamp=$(date -u +%H%M%S)
           python scripts/make_map.py "images/$day-$stamp.jpg"
           cp "images/$day-$stamp.jpg" images/latest.jpg
-          if [ "${{ github.event_name }}" = "schedule" ]; then cp "images/$day-$stamp.jpg" "images/$day.jpg"; fi
+          # A real send to Drivers (scheduled, or manual with no test number) marks today as done.
+          if [ -z "${{ github.event.inputs.test_number }}" ]; then cp "images/$day-$stamp.jpg" "images/$day.jpg"; fi
           git config user.name "daily-weather-bot"; git config user.email "daily-weather-bot@users.noreply.github.com"
-          git add images && git commit -m "Weather map $day" && git push
+          git add images && git commit -m "Weather map $day" && (git push || (git pull --rebase origin main && git push))
           echo "url=https://raw.githubusercontent.com/${{ github.repository }}/$(git rev-parse HEAD)/images/$day-$stamp.jpg" >> "$GITHUB_OUTPUT"
       - name: Send text
         if: steps.gate.outputs.go == '1'
