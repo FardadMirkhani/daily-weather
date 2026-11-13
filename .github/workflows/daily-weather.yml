@@ -14,6 +14,10 @@ on:
       test_number:
         description: "Send only to this number (e.g. 18584143176). Leave blank to send to the Drivers group."
         required: false
+      daily_start:
+        description: "Used by the 7:45 AM backup starter: behave like the scheduled run (wait for 8:00 ET, skip if already sent)."
+        required: false
+        default: "no"
 
 permissions:
   contents: write
@@ -34,7 +38,7 @@ jobs:
       - name: Decide whether to run now
         id: gate
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.daily_start }}" != "yes" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           day=$(TZ=America/New_York date +%F); hour=$(TZ=America/New_York date +%-H)
           if [ -f "images/$day.jpg" ]; then echo "Already sent today"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$hour" -lt 7 ] || [ "$hour" -gt 10 ]; then echo "Not the morning run (ET hour $hour)"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
