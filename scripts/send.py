@@ -2,7 +2,7 @@
 
 Env: EZ_USER, EZ_PASS (GitHub secrets), IMAGE_URL, and either TO_NUMBER (test) or GROUP_NAME.
 """
-import base64, json, os, sys, urllib.request
+import json, os, sys, urllib.error, urllib.request
 from roads import road_section
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -16,14 +16,29 @@ def read(name):
 SAFETY = read("safety-message.txt")
 SUBJECT = read("subject-line.txt")  # shown in parentheses at the top; leave the file empty for none
 
+_TOKEN = None
+
+def token():
+    """EZ Texting no longer accepts Basic auth here; trade the login for a short-lived access token."""
+    global _TOKEN
+    if _TOKEN is None:
+        body = json.dumps({"appKey": os.environ["EZ_USER"], "appSecret": os.environ["EZ_PASS"]}).encode()
+        req = urllib.request.Request(API + "/tokens/create", data=body, method="POST",
+            headers={"Accept": "application/json", "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            _TOKEN = json.loads(r.read())["accessToken"]
+    return _TOKEN
+
 def call(method, path, body=None):
-    auth = base64.b64encode(f"{os.environ['EZ_USER']}:{os.environ['EZ_PASS']}".encode()).decode()
     req = urllib.request.Request(API + path, method=method,
         data=json.dumps(body).encode() if body is not None else None,
-        headers={"Authorization": "Basic " + auth, "Accept": "application/json",
+        headers={"Authorization": "Bearer " + token(), "Accept": "application/json",
                  "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read() or b"{}")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        sys.exit(f"EZ Texting {method} {path} failed: {e.code} {e.read().decode()[:300]}")
 
 def main():
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
