@@ -53,8 +53,6 @@ jobs:
           stamp=$(date -u +%H%M%S)
           python scripts/make_map.py "images/$day-$stamp.jpg"
           cp "images/$day-$stamp.jpg" images/latest.jpg
-          # A real send to Drivers (scheduled, or manual with no test number) marks today as done.
-          if [ -z "${{ github.event.inputs.test_number }}" ]; then cp "images/$day-$stamp.jpg" "images/$day.jpg"; fi
           git config user.name "daily-weather-bot"; git config user.email "daily-weather-bot@users.noreply.github.com"
           git add images && git commit -m "Weather map $day" && (git push || (git pull --rebase origin main && git push))
           echo "url=https://raw.githubusercontent.com/${{ github.repository }}/$(git rev-parse HEAD)/images/$day-$stamp.jpg" >> "$GITHUB_OUTPUT"
@@ -67,3 +65,11 @@ jobs:
           TO_NUMBER: ${{ github.event.inputs.test_number }}
           GROUP_NAME: Drivers
         run: python scripts/send.py
+      - name: Mark today as sent
+        if: steps.gate.outputs.go == '1' && github.event.inputs.test_number == ''
+        run: |
+          # Only after a successful send to Drivers, so a failed morning is retried by the backup runs.
+          day=$(TZ=America/New_York date +%F)
+          git pull --ff-only origin main
+          cp images/latest.jpg "images/$day.jpg"
+          git add images && git commit -m "Sent $day" && (git push || (git pull --rebase origin main && git push))
