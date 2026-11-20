@@ -25,8 +25,11 @@ def token():
         body = json.dumps({"appKey": os.environ["EZ_USER"], "appSecret": os.environ["EZ_PASS"]}).encode()
         req = urllib.request.Request(API + "/tokens/create", data=body, method="POST",
             headers={"Accept": "application/json", "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            _TOKEN = json.loads(r.read())["accessToken"]
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                _TOKEN = json.loads(r.read())["accessToken"]
+        except urllib.error.HTTPError as e:
+            sys.exit(f"EZ Texting login failed: {e.code} {e.read().decode()[:300]}")
     return _TOKEN
 
 def call(method, path, body=None):
