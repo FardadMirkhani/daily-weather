@@ -44,6 +44,8 @@ def call(method, path, body=None):
         sys.exit(f"EZ Texting {method} {path} failed: {e.code} {e.read().decode()[:300]}")
 
 def main():
+    if os.environ.get("TWILIO_ACCOUNT_SID") and os.environ.get("TWILIO_FROM"):
+        return main_twilio()
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
         sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
     today = datetime.now(ZoneInfo("America/New_York"))
@@ -65,6 +67,18 @@ def main():
             sys.exit(f"Group {name!r} not found")
         msg["groupIds"] = ids
     print(call("POST", "/messages", msg))
+
+def main_twilio():
+    import twilio_send
+    today = datetime.now(ZoneInfo("America/New_York"))
+    roads = road_section()
+    text = (SUBJECT + "\n" if SUBJECT else "") + f"{today:%a %b %-d, %Y}\n" + \
+        (roads + "\n\n" if roads else "") + SAFETY
+    to = os.environ.get("TO_NUMBER")
+    if to:
+        twilio_send.send("TEST - " + text, os.environ["IMAGE_URL"], [("Test", twilio_send.e164(to))], "WEATHER TEST")
+    else:
+        twilio_send.send(text, os.environ["IMAGE_URL"], label="WEATHER")
 
 if __name__ == "__main__":
     main()
