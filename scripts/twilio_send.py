@@ -65,7 +65,9 @@ def send(text, media_url=None, recipients=None, label="BROADCAST"):
     time.sleep(120 if len(sent) > 1 else 30)
     delivered = 0
     for name, msid in sent:
-        st = _call("GET", f"/Messages/{msid}.json").get("status", "unknown")
+        m = _call("GET", f"/Messages/{msid}.json")
+        st = m.get("status", "unknown")
+        print(f"{name}: {st} {m.get('error_code') or ''} {m.get('error_message') or ''}".strip())
         if st in ("delivered", "sent", "queued", "sending", "accepted"):
             delivered += 1
         else:
