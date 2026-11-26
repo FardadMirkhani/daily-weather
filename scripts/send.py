@@ -18,6 +18,9 @@ SUBJECT = read("subject-line.txt")  # shown in parentheses at the top; leave the
 
 _TOKEN = None
 
+class WebFallback(Exception):
+    pass
+
 def token():
     """EZ Texting no longer accepts Basic auth here; trade the login for a short-lived access token."""
     global _TOKEN
@@ -29,7 +32,11 @@ def token():
             with urllib.request.urlopen(req, timeout=60) as r:
                 _TOKEN = json.loads(r.read())["accessToken"]
         except urllib.error.HTTPError as e:
-            sys.exit(f"EZ Texting login failed: {e.code} {e.read().decode()[:300]}")
+            msg = f"EZ Texting login failed: {e.code} {e.read().decode()[:300]}"
+            if os.environ.get("IMAGE_PATH"):
+                print(msg + "\nAPI locked, sending through the EZ Texting website instead.")
+                raise WebFallback()
+            sys.exit(msg)
     return _TOKEN
 
 def call(method, path, body=None):
@@ -46,7 +53,7 @@ def call(method, path, body=None):
 def main():
     tw = os.environ.get("TWILIO_ACCOUNT_SID") and os.environ.get("TWILIO_FROM") and \
         (os.environ.get("TWILIO_AUTH_TOKEN") or os.environ.get("TWILIO_API_SECRET"))
-    if tw and (os.environ.get("DRIVER_NUMBERS") or os.environ.get("TO_NUMBER")):
+    if tw and os.environ.get("DRIVER_NUMBERS"):  # Twilio only once the driver list is in (i.e. after approval)
         return main_twilio()
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
         sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
@@ -54,6 +61,14 @@ def main():
     roads = road_section()
     text = f"{today:%a %b %-d, %Y}\n" + (roads + "\n\n" if roads else "") + SAFETY
     text = text[:1500]
+    try:
+        token()
+    except WebFallback:
+        import ez_web
+        to = os.environ.get("TO_NUMBER")
+        ez_web.send(("TEST - " + text) if to else text, os.environ["IMAGE_PATH"], SUBJECT,
+                    to_number=to[-10:] if to else None, group=os.environ.get("GROUP_NAME", "Drivers"))
+        return
     media = call("POST", "/media-files", {"mediaUrl": os.environ["IMAGE_URL"]})
     msg = {"message": text, "mediaFileId": media["id"], "messageType": "MMS"}
     if SUBJECT:

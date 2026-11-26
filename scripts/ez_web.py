@@ -52,6 +52,45 @@ def run_steps(pg, steps):
             print(f"step {i} {k}: FAILED {type(e).__name__}")
         note(pg, i, k)
 
+def send(text, image_path, subject="", to_number=None, group="Drivers"):
+    """Send one MMS through the website, exactly like doing it by hand. Raises on any failure."""
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page(viewport={"width": 1400, "height": 1000})
+        try:
+            login(pg)
+            pg.goto("https://spa.eztexting.com/sending/messages/new", wait_until="networkidle", timeout=60000)
+            pg.locator("#sending-recipients-dropdown-toggle").click()
+            pg.wait_for_timeout(1500)
+            if to_number:
+                pg.locator("#sending-recipients-search-input").fill(to_number)
+                pg.keyboard.press("Enter")
+            else:
+                pg.locator("#sending-recipients-results-panel .recipient", has_text=group).first.click()
+            pg.wait_for_timeout(1000)
+            pg.locator("#sending-recipients-results-done-btn").click()
+            pg.locator("#sending-message-add-media-btn").click()
+            pg.locator("input[type=file]").first.set_input_files(image_path)
+            pg.locator("#media-preview-attach-btn").click(timeout=30000)
+            pg.wait_for_timeout(4000)
+            pg.locator("#sending-message-subject-input").fill(subject)
+            pg.locator("#sending-message-text-input").fill(text)
+            pg.wait_for_timeout(1000)
+            pg.locator("#sending-message-form-review-btn").click()
+            pg.locator("#sending-confirm-submit-btn").wait_for(timeout=30000)
+            note(pg, 90, "review")
+            pg.locator("#sending-confirm-submit-btn").click()
+            pg.wait_for_timeout(8000)
+            note(pg, 91, "after-send")
+            if "messages/new" in pg.url or pg.locator("#sending-confirm-submit-btn").is_visible():
+                raise RuntimeError("Send button did not complete")
+            print("Website send done:", pg.url.split("?")[0])
+        except Exception:
+            note(pg, 99, "error")
+            raise
+        finally:
+            b.close()
+
 if __name__ == "__main__":
     with sync_playwright() as p:
         b = p.chromium.launch()
