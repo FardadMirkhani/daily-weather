@@ -8,8 +8,10 @@ import base64, json, os, re, sys, time, urllib.error, urllib.parse, urllib.reque
 
 def _auth():
     sid = os.environ["TWILIO_ACCOUNT_SID"]
-    user = os.environ.get("TWILIO_API_KEY") or sid
-    pw = os.environ.get("TWILIO_API_SECRET") or os.environ.get("TWILIO_AUTH_TOKEN", "")
+    if os.environ.get("TWILIO_AUTH_TOKEN"):  # simplest and always allowed: Account SID + Auth Token
+        user, pw = sid, os.environ["TWILIO_AUTH_TOKEN"]
+    else:
+        user, pw = os.environ.get("TWILIO_API_KEY", ""), os.environ.get("TWILIO_API_SECRET", "")
     return sid, "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode()
 
 def _call(method, url, form=None):

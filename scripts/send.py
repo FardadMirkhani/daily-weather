@@ -44,7 +44,9 @@ def call(method, path, body=None):
         sys.exit(f"EZ Texting {method} {path} failed: {e.code} {e.read().decode()[:300]}")
 
 def main():
-    if all(os.environ.get(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_FROM", "TWILIO_API_SECRET", "DRIVER_NUMBERS")) or (os.environ.get("TO_NUMBER") and all(os.environ.get(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_FROM", "TWILIO_API_SECRET"))):
+    tw = os.environ.get("TWILIO_ACCOUNT_SID") and os.environ.get("TWILIO_FROM") and \
+        (os.environ.get("TWILIO_AUTH_TOKEN") or os.environ.get("TWILIO_API_SECRET"))
+    if tw and (os.environ.get("DRIVER_NUMBERS") or os.environ.get("TO_NUMBER")):
         return main_twilio()
     if not os.environ.get("EZ_USER") or not os.environ.get("EZ_PASS"):
         sys.exit("EZ_USER / EZ_PASS repository secrets are missing (Settings > Secrets and variables > Actions).")
