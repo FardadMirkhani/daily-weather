@@ -74,8 +74,9 @@ def main_twilio():
     import twilio_send
     today = datetime.now(ZoneInfo("America/New_York"))
     roads = road_section()
-    text = (SUBJECT + "\n" if SUBJECT else "") + f"{today:%a %b %-d, %Y}\n" + \
-        (roads + "\n\n" if roads else "") + SAFETY
+    # Carriers expect the registered brand name and opt-out wording in every text.
+    text = "Seaside Logistics " + (SUBJECT + "\n" if SUBJECT else "\n") + f"{today:%a %b %-d, %Y}\n" + \
+        (roads + "\n\n" if roads else "") + SAFETY + "\n\nReply STOP to opt out."
     to = os.environ.get("TO_NUMBER")
     if to:
         twilio_send.send("TEST - " + text, os.environ["IMAGE_URL"], [("Test", twilio_send.e164(to))], "WEATHER TEST")
