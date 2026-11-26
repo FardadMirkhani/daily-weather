@@ -1,0 +1,32 @@
+name: EZ Texting website explore
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "JSON list of browser steps"
+        required: false
+        default: "[]"
+permissions:
+  contents: write
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install playwright && python -m playwright install --with-deps chromium >/dev/null
+      - name: Explore
+        env:
+          EZ_USER: ${{ secrets.EZ_USER }}
+          EZ_PASS: ${{ secrets.EZ_PASS }}
+          STEPS: ${{ github.event.inputs.steps }}
+        run: python scripts/ez_web.py
+      - name: Save encrypted results
+        if: always()
+        run: |
+          tar czf out.tgz out
+          openssl smime -encrypt -binary -aes256 -in out.tgz -outform DER -out out.enc scripts/explore-cert.pem
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan explore-out && git rm -rqf --cached . && git add -f out.enc
+          git commit -qm "explore ${{ github.run_id }}" && git push -qf origin explore-out
