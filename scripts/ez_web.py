@@ -75,15 +75,19 @@ def send(text, image_path, subject="", to_number=None, group="Drivers"):
             pg.wait_for_timeout(4000)
             pg.locator("#sending-message-subject-input").fill(subject)
             pg.locator("#sending-message-text-input").fill(text)
+            try:  # like Reza does it: SafeSTOP -> "No Opt-out Text in your message"
+                pg.locator("#sending-message-safe-stop-btn").click(timeout=5000)
+                pg.locator("label[for=no-safe-stop], #no-safe-stop").first.click(timeout=5000)
+                pg.keyboard.press("Escape")
+            except Exception:
+                pass
             pg.wait_for_timeout(1000)
             pg.locator("#sending-message-form-review-btn").click()
             pg.locator("#sending-confirm-submit-btn").wait_for(timeout=30000)
             note(pg, 90, "review")
             pg.locator("#sending-confirm-submit-btn").click()
-            pg.wait_for_timeout(8000)
+            pg.locator("#sending-message-sent-view-report-link").wait_for(timeout=60000)  # "message sent" screen
             note(pg, 91, "after-send")
-            if "messages/new" in pg.url or pg.locator("#sending-confirm-submit-btn").is_visible():
-                raise RuntimeError("Send button did not complete")
             print("Website send done:", pg.url.split("?")[0])
         except Exception:
             note(pg, 99, "error")
