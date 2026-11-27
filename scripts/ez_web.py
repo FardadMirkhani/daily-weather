@@ -34,6 +34,16 @@ def note(pg, i, label):
     with open(f"{OUT}/{i:02d}-{label}.txt", "w") as f:
         f.write(info["url"] + "\n" + "\n".join(info["controls"]))
 
+AUTH = {}
+
+def watch_auth(pg):
+    """Remember the website's own Authorization header so a step can read data the same way the page does."""
+    def grab(req):
+        h = req.headers.get("authorization")
+        if h and "srv.callfire.com" in req.url:
+            AUTH["h"] = h
+    pg.on("request", grab)
+
 def run_steps(pg, steps):
     for i, st in enumerate(steps, 1):
         k, v = next(iter(st.items()))
@@ -48,7 +58,7 @@ def run_steps(pg, steps):
             elif k == "upload": pg.locator(v[0]).first.set_input_files(v[1])
             elif k == "wait": pg.wait_for_timeout(v)
             elif k == "fetchjson":
-                r = pg.evaluate("async u => { const r = await fetch(u, {credentials: 'include'}); return r.status + ' ' + await r.text(); }", v)
+                r = pg.evaluate("async ([u, a]) => { const r = await fetch(u, {headers: {Authorization: a}}); return r.status + ' ' + await r.text(); }", [v, AUTH.get("h", "")])
                 with open(f"{OUT}/{i:02d}-fetch.txt", "w") as f:
                     f.write(r)
             elif k == "select": pg.locator(v[0]).first.select_option(v[1])
@@ -120,6 +130,7 @@ if __name__ == "__main__":
                 except Exception:
                     pass
         pg.on("response", keep_json)
+        watch_auth(pg)
         login(pg)
         print("logged in")
         note(pg, 0, "dashboard")
