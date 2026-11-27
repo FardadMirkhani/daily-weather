@@ -106,8 +106,10 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     pg.wait_for_timeout(4000)
     if button == "#deleteBtn":  # one at a time through each row's own menu (some rows have no tick box)
         for cid in ids:
-            pg.locator(f"#contacts-actions-{cid}").first.click()
-            pg.locator(f"#contacts-delete-{cid}").first.click(timeout=15000)
+            row = pg.locator(f"#contacts-actions-{cid}").first
+            row.scroll_into_view_if_needed()
+            row.click(force=True)  # the chat bubble can sit on top of the row
+            pg.locator(f"#contacts-delete-{cid}").first.click(force=True, timeout=15000)
             pg.wait_for_timeout(1500)
             confirm(pg, 1)
             pg.wait_for_timeout(3000)
