@@ -99,8 +99,8 @@ def remove(pg, ids):
     note(pg, 87, "remove-done")
 
 def main():
-    active = motive_drivers()
-    nophone = active.pop("nophone", [])
+    active = motive_drivers() if os.environ.get("MOTIVE_API_KEY") else None
+    nophone = active.pop("nophone", []) if active else []
     keep = {digits(x) for x in os.environ.get("KEEP_NUMBERS", "").splitlines() if digits(x)}
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -108,6 +108,9 @@ def main():
         try:
             login(pg)
             members = group_members(pg)
+            if active is None:
+                print(f"Drivers group read OK: {len(members)} contacts. MOTIVE_API_KEY secret is not set yet, stopping.")
+                return
             add = sorted(ph for ph in active if ph not in members)
             gone = sorted(ph for ph in members if ph not in active and ph not in keep)
             print(f"Motive active drivers with a phone: {len(active)} (without a phone: {len(nophone)})")
