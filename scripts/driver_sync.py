@@ -100,7 +100,9 @@ def upload(pg, rows):
 def remove(pg, ids, button="#removeFromThisGroupBtn"):
     pg.goto(f"https://spa.eztexting.com/groups/{GROUP_ID}", wait_until="domcontentloaded", timeout=60000)
     pg.locator("#pagination-page-size-select").wait_for(timeout=60000)
-    pg.locator("#pagination-page-size-select").select_option("200")
+    pg.wait_for_timeout(2000)
+    with pg.expect_response(lambda r: "/contact/view-list" in r.url and "pageSize=200" in r.url, timeout=60000):
+        pg.locator("#pagination-page-size-select").select_option("200")
     pg.wait_for_timeout(4000)
     for cid in ids:
         pg.locator(f"#table-checkbox-{cid}-input").first.check(force=True)
