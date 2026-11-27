@@ -103,7 +103,7 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     pg.locator("#pagination-page-size-select").select_option("200")
     pg.wait_for_timeout(4000)
     for cid in ids:
-        pg.locator(f"#table-checkbox-{cid}-input").check(force=True)
+        pg.locator(f"#table-checkbox-{cid}-input").first.check(force=True)
     note(pg, 85, "remove-selected")
     pg.locator(button).click()
     pg.wait_for_timeout(2000)
@@ -151,6 +151,8 @@ def main():
                           if ph not in motive_phones and m["key"] not in motive_keys
                           and ph not in keep and m["id"] not in KEEP_IDS)
             print(f"Motive active drivers: {len(active)} | Drivers group now: {len(members)}")
+            # an outdated contact whose new number was already uploaded on an earlier run
+            replace_old += [ph for ph, m in members.items() if m["id"] in REPLACE_IDS and ph not in replace_old]
             print(f"Numbers to replace with Motive's: {len(replace_old)}")
             print(f"To add: {len(add)} | no longer active: {len(gone)} | phone differs between Motive and EZ: {len(mismatch)} | new driver with no phone in Motive: {len(nophone)}")
             with open(f"{OUT}/sync-report.txt", "w") as f:
