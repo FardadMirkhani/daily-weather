@@ -101,6 +101,8 @@ if __name__ == "__main__":
     with sync_playwright() as p:
         b = p.chromium.launch()
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
+        net = open(f"{OUT}/net.txt", "w")
+        pg.on("response", lambda r: r.request.resource_type in ("xhr", "fetch") and net.write(f"{r.request.method} {r.status} {r.url}\n"))
         login(pg)
         print("logged in")
         note(pg, 0, "dashboard")
