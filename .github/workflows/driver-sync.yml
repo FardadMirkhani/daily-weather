@@ -32,8 +32,8 @@ jobs:
           EZ_PASS: ${{ secrets.EZ_PASS }}
           MOTIVE_API_KEY: ${{ secrets.MOTIVE_API_KEY }}
           KEEP_NUMBERS: ${{ secrets.KEEP_NUMBERS }}
-          MODE: ${{ github.event_name == 'schedule' && 'report' || inputs.mode }}
-          REMOVE_INACTIVE: ${{ github.event_name == 'schedule' && 'no' || inputs.remove_inactive }}
+          MODE: ${{ github.event_name == 'schedule' && 'apply' || inputs.mode }}
+          REMOVE_INACTIVE: ${{ github.event_name == 'schedule' && 'yes' || inputs.remove_inactive }}
         run: python scripts/driver_sync.py
       - name: Save encrypted report
         if: always()

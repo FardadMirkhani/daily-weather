@@ -104,6 +104,7 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     with pg.expect_response(lambda r: "/contact/view-list" in r.url and "pageSize=200" in r.url, timeout=60000):
         pg.locator("#pagination-page-size-select").select_option("200")
     pg.wait_for_timeout(4000)
+    done = 0
     if button == "#deleteBtn":  # one at a time through each row's own menu (some rows have no tick box)
         for cid in ids:
             row = pg.locator(f"#contacts-actions-{cid}").first
@@ -115,9 +116,10 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
             pg.locator(f"#contacts-delete-{cid}").first.click(force=True, timeout=15000)
             pg.wait_for_timeout(1500)
             confirm(pg, 1)
+            done += 1
             pg.wait_for_timeout(3000)
         note(pg, 87, "remove-done")
-        return
+        return done
     for cid in ids:
         pg.locator(f"#table-checkbox-{cid}-input").first.check(force=True)
     note(pg, 85, "remove-selected")
@@ -127,6 +129,7 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     confirm(pg, len(ids))
     pg.wait_for_timeout(5000)
     note(pg, 87, "remove-done")
+    return len(ids)
 
 def confirm(pg, n):
     dlg = pg.locator("[role=dialog], mat-dialog-container, .modal").last
@@ -202,8 +205,8 @@ def main():
                 only = [members[ph]["id"] for ph in gone if members[ph]["groups"] <= 1]
                 multi = [members[ph]["id"] for ph in gone if members[ph]["groups"] > 1]
                 if only:
-                    remove(pg, only, "#deleteBtn")
-                    print(f"Deleted {len(only)} inactive drivers.")
+                    n = remove(pg, only, "#deleteBtn")
+                    print(f"Deleted {n} inactive drivers.")
                 if multi:
                     remove(pg, multi)
                     print(f"Took {len(multi)} inactive drivers out of Drivers (they are in other groups too, so kept).")
