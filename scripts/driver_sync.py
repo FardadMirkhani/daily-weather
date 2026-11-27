@@ -24,9 +24,16 @@ def digits(p):
     d = re.sub(r"\D", "", p or "")
     return d[-10:] if len(d) >= 10 else ""
 
+def namekey(first, last):
+    """Same person even with small spelling differences: first 4 letters of first name + first word of last name."""
+    f = re.sub(r"[^a-z]", "", (first or "").lower())[:4]
+    l = ((last or "").lower().split() or [""])[0]
+    return f + "|" + re.sub(r"[^a-z]", "", l)
+
 def motive_drivers():
+    """Active Motive drivers as a list of (phone or '', first, last)."""
     key = os.environ["MOTIVE_API_KEY"]
-    out, page = {}, 1
+    out, page = [], 1
     while True:
         req = urllib.request.Request(f"https://api.gomotive.com/v1/users?role=driver&status=active&per_page=100&page_no={page}",
                                      headers={"X-Api-Key": key, "Accept": "application/json"})
@@ -35,11 +42,10 @@ def motive_drivers():
         for u in users:
             if u.get("role", "driver") != "driver" or u.get("status", "active") != "active":
                 continue
-            ph = digits(u.get("phone"))
-            if ph:
-                out[ph] = (u.get("first_name") or "").strip(), (u.get("last_name") or "").strip()
-            else:
-                out.setdefault("nophone", []).append(f"{u.get('first_name','')} {u.get('last_name','')}".strip())
+            first, last = (u.get("first_name") or "").strip(), (u.get("last_name") or "").strip()
+            if first.upper().startswith(("MECHANIC", "TEST")):
+                continue
+            out.append((digits(u.get("phone")), first, last))
         pg = d.get("pagination", {})
         if not users or page * pg.get("per_page", 100) >= pg.get("total", 0):
             break
@@ -63,7 +69,9 @@ def group_members(pg):
     for c in items:
         ph = digits(str(c.get("phoneNumber") or c.get("phone") or ""))
         if ph:
-            members[ph] = {"id": str(c.get("id")), "groups": len(c.get("groups") or []), "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip()}
+            members[ph] = {"id": str(c.get("id")), "groups": len(c.get("groups") or []),
+                           "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip(),
+                           "key": namekey(c.get("firstName"), c.get("lastName"))}
     return members
 
 def upload(pg, rows):
@@ -103,7 +111,6 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
 
 def main():
     active = motive_drivers() if os.environ.get("MOTIVE_API_KEY") else None
-    nophone = active.pop("nophone", []) if active else []
     keep = {digits(x) for x in os.environ.get("KEEP_NUMBERS", "").splitlines() if digits(x)}
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -114,21 +121,39 @@ def main():
             if active is None:
                 print(f"Drivers group read OK: {len(members)} contacts. MOTIVE_API_KEY secret is not set yet, stopping.")
                 return
-            add = sorted(ph for ph in active if ph not in members)
-            gone = sorted(ph for ph in members if ph not in active and ph not in keep and members[ph]["id"] not in KEEP_IDS)
-            print(f"Motive active drivers with a phone: {len(active)} (without a phone: {len(nophone)})")
-            print(f"Drivers group now: {len(members)} | to add: {len(add)} | no longer active: {len(gone)}")
             if len(active) < 20:
                 raise RuntimeError("Fewer than 20 active drivers came back from Motive; not changing anything")
+            member_keys = {m["key"]: ph for ph, m in members.items()}
+            motive_phones = {ph for ph, _, _ in active if ph}
+            motive_keys = {namekey(f, l) for _, f, l in active}
+            add, mismatch, nophone = [], [], []
+            for ph, f, l in active:
+                k = namekey(f, l)
+                if ph and ph in members:
+                    continue
+                if k in member_keys:  # same driver, but the phone differs (or Motive has none): keep EZ's, tell Reza
+                    if ph:
+                        mismatch.append(f"{f} {l}: Motive {ph}, EZ Texting {member_keys[k]}")
+                    continue
+                if ph:
+                    add.append([ph, f, l])
+                else:
+                    nophone.append(f"{f} {l}")
+            gone = sorted(ph for ph, m in members.items()
+                          if ph not in motive_phones and m["key"] not in motive_keys
+                          and ph not in keep and m["id"] not in KEEP_IDS)
+            print(f"Motive active drivers: {len(active)} | Drivers group now: {len(members)}")
+            print(f"To add: {len(add)} | no longer active: {len(gone)} | phone differs between Motive and EZ: {len(mismatch)} | new driver with no phone in Motive: {len(nophone)}")
             with open(f"{OUT}/sync-report.txt", "w") as f:
-                f.write("ADD (active in Motive, not in Drivers):\n" + "".join(f"  {ph} {' '.join(active[ph])}\n" for ph in add))
+                f.write("ADD (active in Motive, not in Drivers):\n" + "".join(f"  {r[0]} {r[1]} {r[2]}\n" for r in add))
                 f.write("NOT ACTIVE (in Drivers, not active in Motive):\n" + "".join(f"  {ph} {members[ph]['name']}\n" for ph in gone))
-                f.write("ACTIVE IN MOTIVE BUT NO PHONE:\n" + "".join(f"  {n}\n" for n in nophone))
+                f.write("PHONE DIFFERS (left as is in EZ Texting):\n" + "".join(f"  {x}\n" for x in mismatch))
+                f.write("NEW IN MOTIVE BUT NO PHONE THERE:\n" + "".join(f"  {x}\n" for x in nophone))
             if MODE != "apply":
                 print("Report only, nothing changed.")
                 return
             if add:
-                upload(pg, [[ph, *active[ph]] for ph in add])
+                upload(pg, add)
                 print(f"Uploaded {len(add)} new drivers into Drivers.")
             if gone and REMOVE:
                 if len(gone) > max(10, len(members) // 4):
