@@ -16,6 +16,9 @@ from ez_web import login, note, OUT
 GROUP_ID = os.environ.get("EZ_GROUP_ID", "34351329003")  # Drivers
 MODE = os.environ.get("MODE", "report")
 REMOVE = os.environ.get("REMOVE_INACTIVE", "no") == "yes"
+# Never removed: office staff who are in Drivers but not in Motive (Reza, Darcy, Chris Corona, Armando Lomeli),
+# by their EZ Texting contact id.
+KEEP_IDS = {"3922673811003", "3987734538003", "6528316206003", "6701581272003"}
 
 def digits(p):
     d = re.sub(r"\D", "", p or "")
@@ -52,15 +55,15 @@ def group_members(pg):
     d = resp.value.json()
     with open(f"{OUT}/group-raw.json", "w") as f:
         json.dump(d, f)
-    items = d.get("items") or d.get("data") or d.get("content") or (d if isinstance(d, list) else [])
-    total = d.get("totalCount") or d.get("total") or len(items)
+    items = d.get("_embedded", {}).get("entities", [])
+    total = d.get("total") or 0
     if total and total > len(items):
         raise RuntimeError(f"Group has {total} contacts but only {len(items)} were read; paging needed")
     members = {}
     for c in items:
         ph = digits(str(c.get("phoneNumber") or c.get("phone") or ""))
         if ph:
-            members[ph] = {"id": c.get("id"), "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip()}
+            members[ph] = {"id": str(c.get("id")), "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip()}
     return members
 
 def upload(pg, rows):
@@ -112,7 +115,7 @@ def main():
                 print(f"Drivers group read OK: {len(members)} contacts. MOTIVE_API_KEY secret is not set yet, stopping.")
                 return
             add = sorted(ph for ph in active if ph not in members)
-            gone = sorted(ph for ph in members if ph not in active and ph not in keep)
+            gone = sorted(ph for ph in members if ph not in active and ph not in keep and members[ph]["id"] not in KEEP_IDS)
             print(f"Motive active drivers with a phone: {len(active)} (without a phone: {len(nophone)})")
             print(f"Drivers group now: {len(members)} | to add: {len(add)} | no longer active: {len(gone)}")
             if len(active) < 20:
