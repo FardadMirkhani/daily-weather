@@ -107,6 +107,9 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     if button == "#deleteBtn":  # one at a time through each row's own menu (some rows have no tick box)
         for cid in ids:
             row = pg.locator(f"#contacts-actions-{cid}").first
+            if not row.is_visible():  # opted-out contacts are shown struck through with no menu; they get no texts anyway
+                print("Skipped 1 contact that has opted out (EZ Texting won't delete it; it receives no texts).")
+                continue
             row.scroll_into_view_if_needed()
             row.click(force=True)  # the chat bubble can sit on top of the row
             pg.locator(f"#contacts-delete-{cid}").first.click(force=True, timeout=15000)
