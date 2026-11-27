@@ -1,0 +1,45 @@
+name: Sync Drivers group with Motive
+
+on:
+  schedule:
+    - cron: "15 11 * * *"   # 6:15 AM EST / 7:15 AM EDT, before the 8 AM weather text
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "report (change nothing) or apply"
+        default: "report"
+      remove_inactive:
+        description: "yes = take drivers no longer active in Motive out of the Drivers group (contacts are kept)"
+        default: "no"
+
+permissions:
+  contents: write
+
+concurrency: driver-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install playwright && python -m playwright install --with-deps chromium >/dev/null
+      - name: Sync
+        env:
+          EZ_USER: ${{ secrets.EZ_USER }}
+          EZ_PASS: ${{ secrets.EZ_PASS }}
+          MOTIVE_API_KEY: ${{ secrets.MOTIVE_API_KEY }}
+          KEEP_NUMBERS: ${{ secrets.KEEP_NUMBERS }}
+          MODE: ${{ github.event_name == 'schedule' && 'report' || inputs.mode }}
+          REMOVE_INACTIVE: ${{ github.event_name == 'schedule' && 'no' || inputs.remove_inactive }}
+        run: python scripts/driver_sync.py
+      - name: Save encrypted report
+        if: always()
+        run: |
+          tar czf out.tgz out
+          openssl smime -encrypt -binary -aes256 -in out.tgz -outform DER -out out.enc scripts/explore-cert.pem
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan sync-out && git rm -rqf --cached . && git add -f out.enc
+          git commit -qm "sync ${{ github.run_id }}" && git push -qf origin sync-out
