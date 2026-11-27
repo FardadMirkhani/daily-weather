@@ -77,10 +77,12 @@ def send(text, image_path, subject="", to_number=None, group="Drivers"):
             pg.locator("#sending-message-text-input").fill(text)
             try:  # like Reza does it: SafeSTOP -> "No Opt-out Text in your message"
                 pg.locator("#sending-message-safe-stop-btn").click(timeout=5000)
-                pg.locator("label[for=no-safe-stop], #no-safe-stop").first.click(timeout=5000)
-                pg.keyboard.press("Escape")
+                pg.get_by_text("No Opt-out Text in your message").first.click(timeout=5000)
             except Exception:
                 pass
+            pg.wait_for_timeout(800)
+            pg.mouse.click(1100, 600)  # click outside so the SafeSTOP popup closes
+            pg.wait_for_timeout(800)
             pg.wait_for_timeout(1000)
             pg.locator("#sending-message-form-review-btn").click()
             pg.locator("#sending-confirm-submit-btn").wait_for(timeout=30000)
