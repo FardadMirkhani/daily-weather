@@ -47,6 +47,10 @@ def run_steps(pg, steps):
             elif k == "press": pg.keyboard.press(v)
             elif k == "upload": pg.locator(v[0]).first.set_input_files(v[1])
             elif k == "wait": pg.wait_for_timeout(v)
+            elif k == "fetchjson":
+                r = pg.evaluate("async u => { const r = await fetch(u, {credentials: 'include'}); return r.status + ' ' + await r.text(); }", v)
+                with open(f"{OUT}/{i:02d}-fetch.txt", "w") as f:
+                    f.write(r)
             elif k == "select": pg.locator(v[0]).first.select_option(v[1])
             elif k == "html":
                 with open(f"{OUT}/{i:02d}-html.html", "w") as f:
@@ -108,6 +112,14 @@ if __name__ == "__main__":
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
         net = open(f"{OUT}/net.txt", "w")
         pg.on("response", lambda r: r.request.resource_type in ("xhr", "fetch") and net.write(f"{r.request.method} {r.status} {r.url}\n"))
+        def keep_json(r):
+            if "/sending/report/view-list" in r.url:
+                try:
+                    with open(f"{OUT}/report-{abs(hash(r.url)) % 10**8}.json", "w") as f:
+                        f.write(r.url + "\n" + r.text())
+                except Exception:
+                    pass
+        pg.on("response", keep_json)
         login(pg)
         print("logged in")
         note(pg, 0, "dashboard")
