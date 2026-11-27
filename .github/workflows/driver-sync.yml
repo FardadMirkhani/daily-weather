@@ -9,7 +9,7 @@ on:
         description: "report (change nothing) or apply"
         default: "report"
       remove_inactive:
-        description: "yes = take drivers no longer active in Motive out of the Drivers group (contacts are kept)"
+        description: "yes = delete drivers no longer active in Motive (office contacts are protected)"
         default: "no"
 
 permissions:

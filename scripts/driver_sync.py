@@ -2,7 +2,7 @@
 
 - New active drivers (phone not in Drivers yet) are uploaded as a .csv into the Drivers group.
 - Drivers in the group who are no longer active in Motive are listed, and taken out of the group
-  ("Remove From Group", the contact itself is kept) only when REMOVE_INACTIVE=yes.
+  and deleted (Reza's choice) only when REMOVE_INACTIVE=yes. Contacts also in another group are only taken out of Drivers.
 - KEEP_NUMBERS (secret, optional): phones that must never be removed (office staff, test phones), one per line.
 - MODE=report changes nothing, MODE=apply makes the changes.
 
@@ -63,7 +63,7 @@ def group_members(pg):
     for c in items:
         ph = digits(str(c.get("phoneNumber") or c.get("phone") or ""))
         if ph:
-            members[ph] = {"id": str(c.get("id")), "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip()}
+            members[ph] = {"id": str(c.get("id")), "groups": len(c.get("groups") or []), "name": f"{c.get('firstName') or ''} {c.get('lastName') or ''}".strip()}
     return members
 
 def upload(pg, rows):
@@ -86,7 +86,7 @@ def upload(pg, rows):
     pg.wait_for_timeout(15000)
     note(pg, 81, "upload-done")
 
-def remove(pg, ids):
+def remove(pg, ids, button="#removeFromThisGroupBtn"):
     pg.goto(f"https://spa.eztexting.com/groups/{GROUP_ID}", wait_until="domcontentloaded", timeout=60000)
     pg.locator("#pagination-page-size-select").wait_for(timeout=60000)
     pg.locator("#pagination-page-size-select").select_option("200")
@@ -94,10 +94,10 @@ def remove(pg, ids):
     for cid in ids:
         pg.locator(f"#table-checkbox-{cid}-input").check(force=True)
     note(pg, 85, "remove-selected")
-    pg.locator("#removeFromThisGroupBtn").click()
+    pg.locator(button).click()
     pg.wait_for_timeout(2000)
     note(pg, 86, "remove-confirm")
-    pg.get_by_role("button", name=re.compile("^(Remove|Confirm|Yes)", re.I)).last.click(timeout=15000)
+    pg.get_by_role("button", name=re.compile("^(Remove|Delete|Confirm|Yes)", re.I)).last.click(timeout=15000)
     pg.wait_for_timeout(5000)
     note(pg, 87, "remove-done")
 
@@ -133,8 +133,15 @@ def main():
             if gone and REMOVE:
                 if len(gone) > max(10, len(members) // 4):
                     raise RuntimeError(f"{len(gone)} removals is more than expected; not removing, please check")
-                remove(pg, [members[ph]["id"] for ph in gone])
-                print(f"Removed {len(gone)} inactive drivers from Drivers (contacts kept).")
+                # Reza's choice: delete the contact. A contact that is also in another group is only taken out of Drivers.
+                only = [members[ph]["id"] for ph in gone if members[ph]["groups"] <= 1]
+                multi = [members[ph]["id"] for ph in gone if members[ph]["groups"] > 1]
+                if only:
+                    remove(pg, only, "#deleteBtn")
+                    print(f"Deleted {len(only)} inactive drivers.")
+                if multi:
+                    remove(pg, multi)
+                    print(f"Took {len(multi)} inactive drivers out of Drivers (they are in other groups too, so kept).")
             after = group_members(pg)
             print(f"Drivers group after sync: {len(after)}")
         except Exception:
