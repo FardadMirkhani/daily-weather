@@ -47,6 +47,7 @@ def run_steps(pg, steps):
             elif k == "press": pg.keyboard.press(v)
             elif k == "upload": pg.locator(v[0]).first.set_input_files(v[1])
             elif k == "wait": pg.wait_for_timeout(v)
+            elif k == "select": pg.locator(v[0]).first.select_option(v[1])
             elif k == "html":
                 with open(f"{OUT}/{i:02d}-html.html", "w") as f:
                     f.write(pg.locator(v).first.evaluate("e => e.outerHTML")[:40000])
