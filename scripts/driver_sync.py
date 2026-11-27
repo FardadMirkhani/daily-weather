@@ -104,20 +104,33 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     with pg.expect_response(lambda r: "/contact/view-list" in r.url and "pageSize=200" in r.url, timeout=60000):
         pg.locator("#pagination-page-size-select").select_option("200")
     pg.wait_for_timeout(4000)
+    if button == "#deleteBtn":  # one at a time through each row's own menu (some rows have no tick box)
+        for cid in ids:
+            pg.locator(f"#contacts-actions-{cid}").first.click()
+            pg.locator(f"#contacts-delete-{cid}").first.click(timeout=15000)
+            pg.wait_for_timeout(1500)
+            confirm(pg, 1)
+            pg.wait_for_timeout(3000)
+        note(pg, 87, "remove-done")
+        return
     for cid in ids:
         pg.locator(f"#table-checkbox-{cid}-input").first.check(force=True)
     note(pg, 85, "remove-selected")
     pg.locator(button).click()
     pg.wait_for_timeout(2000)
     note(pg, 86, "remove-confirm")
-    dlg = pg.locator("[role=dialog], mat-dialog-container, .modal").last
-    shown = len(re.findall(r"\(\d{3}\) \d{3}-\s?\d{4}", dlg.inner_text(timeout=10000)))
-    if shown != len(ids):  # the dialog lists the numbers it will act on; stop if it isn't exactly ours
-        pg.get_by_role("button", name="Cancel").last.click()
-        raise RuntimeError(f"Confirm dialog lists {shown} numbers, expected {len(ids)}; cancelled")
-    dlg.get_by_role("button", name=re.compile("^(Submit|Remove|Delete|Confirm|Yes)", re.I)).last.click(timeout=15000)
+    confirm(pg, len(ids))
     pg.wait_for_timeout(5000)
     note(pg, 87, "remove-done")
+
+def confirm(pg, n):
+    dlg = pg.locator("[role=dialog], mat-dialog-container, .modal").last
+    shown = len(re.findall(r"\(\d{3}\) \d{3}-\s?\d{4}", dlg.inner_text(timeout=10000)))
+    if shown != n:  # the dialog lists the numbers it will act on; stop if it isn't exactly ours
+        note(pg, 88, "confirm-mismatch")
+        pg.get_by_role("button", name="Cancel").last.click()
+        raise RuntimeError(f"Confirm dialog lists {shown} numbers, expected {n}; cancelled")
+    dlg.get_by_role("button", name=re.compile("^(Submit|Remove|Delete|Confirm|Yes)", re.I)).last.click(timeout=15000)
 
 def main():
     active = motive_drivers() if os.environ.get("MOTIVE_API_KEY") else None
