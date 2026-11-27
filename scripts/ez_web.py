@@ -63,7 +63,7 @@ def send(text, image_path, subject="", to_number=None, group="Drivers"):
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
         try:
             login(pg)
-            pg.goto("https://spa.eztexting.com/sending/messages/new", wait_until="networkidle", timeout=60000)
+            pg.goto("https://spa.eztexting.com/sending/messages/new", wait_until="domcontentloaded", timeout=60000); pg.wait_for_timeout(5000)
             pg.locator("#sending-recipients-dropdown-toggle").click()
             pg.wait_for_timeout(1500)
             if to_number:
