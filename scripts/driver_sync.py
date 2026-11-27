@@ -18,9 +18,9 @@ MODE = os.environ.get("MODE", "report")
 REMOVE = os.environ.get("REMOVE_INACTIVE", "no") == "yes"
 # Never removed: office staff who are in Drivers but not in Motive (Reza, Darcy, Chris Corona, Armando Lomeli),
 # by their EZ Texting contact id.
-# Contacts whose EZ Texting number is outdated; Reza's driver file confirms the Motive number (Nov 27, 2026).
-# The Motive number is uploaded and the old contact deleted.
-REPLACE_IDS = {"7676307741003", "6361096556003", "3996980640003", "3922673894003"}
+# Contacts whose EZ Texting number bounced on the Nov 26, 2026 broadcast while Motive has a different number
+# (Juan Banuelos, Tomas Enriquez). The Motive number is uploaded and the old contact deleted.
+REPLACE_IDS = {"5841723780003", "6939350365003"}
 KEEP_IDS = {"3922673811003", "3987734538003", "6528316206003", "6701581272003"}
 
 def digits(p):
