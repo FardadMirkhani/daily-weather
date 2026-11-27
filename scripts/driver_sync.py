@@ -108,7 +108,12 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
     pg.locator(button).click()
     pg.wait_for_timeout(2000)
     note(pg, 86, "remove-confirm")
-    pg.get_by_role("button", name=re.compile("^(Remove|Delete|Confirm|Yes)", re.I)).last.click(timeout=15000)
+    dlg = pg.locator("[role=dialog], mat-dialog-container, .modal").last
+    shown = len(re.findall(r"\(\d{3}\) \d{3}-\s?\d{4}", dlg.inner_text(timeout=10000)))
+    if shown != len(ids):  # the dialog lists the numbers it will act on; stop if it isn't exactly ours
+        pg.get_by_role("button", name="Cancel").last.click()
+        raise RuntimeError(f"Confirm dialog lists {shown} numbers, expected {len(ids)}; cancelled")
+    dlg.get_by_role("button", name=re.compile("^(Submit|Remove|Delete|Confirm|Yes)", re.I)).last.click(timeout=15000)
     pg.wait_for_timeout(5000)
     note(pg, 87, "remove-done")
 
