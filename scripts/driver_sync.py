@@ -18,6 +18,9 @@ MODE = os.environ.get("MODE", "report")
 REMOVE = os.environ.get("REMOVE_INACTIVE", "no") == "yes"
 # Never removed: office staff who are in Drivers but not in Motive (Reza, Darcy, Chris Corona, Armando Lomeli),
 # by their EZ Texting contact id.
+# Contacts whose EZ Texting number is outdated; Reza's driver file confirms the Motive number (Nov 27, 2026).
+# The Motive number is uploaded and the old contact deleted.
+REPLACE_IDS = {"7676307741003", "6361096556003", "3996980640003", "3922673894003"}
 KEEP_IDS = {"3922673811003", "3987734538003", "6528316206003", "6701581272003"}
 
 def digits(p):
@@ -124,6 +127,7 @@ def main():
             if len(active) < 20:
                 raise RuntimeError("Fewer than 20 active drivers came back from Motive; not changing anything")
             member_keys = {m["key"]: ph for ph, m in members.items()}
+            replace_old = []
             motive_phones = {ph for ph, _, _ in active if ph}
             motive_keys = {namekey(f, l) for _, f, l in active}
             add, mismatch, nophone = [], [], []
@@ -132,6 +136,10 @@ def main():
                 if ph and ph in members:
                     continue
                 if k in member_keys:  # same driver, but the phone differs (or Motive has none): keep EZ's, tell Reza
+                    old = member_keys[k]
+                    if ph and members[old]["id"] in REPLACE_IDS:
+                        add.append([ph, f, l]); replace_old.append(old)
+                        continue
                     if ph:
                         mismatch.append(f"{f} {l}: Motive {ph}, EZ Texting {member_keys[k]}")
                     continue
@@ -143,10 +151,12 @@ def main():
                           if ph not in motive_phones and m["key"] not in motive_keys
                           and ph not in keep and m["id"] not in KEEP_IDS)
             print(f"Motive active drivers: {len(active)} | Drivers group now: {len(members)}")
+            print(f"Numbers to replace with Motive's: {len(replace_old)}")
             print(f"To add: {len(add)} | no longer active: {len(gone)} | phone differs between Motive and EZ: {len(mismatch)} | new driver with no phone in Motive: {len(nophone)}")
             with open(f"{OUT}/sync-report.txt", "w") as f:
                 f.write("ADD (active in Motive, not in Drivers):\n" + "".join(f"  {r[0]} {r[1]} {r[2]}\n" for r in add))
                 f.write("NOT ACTIVE (in Drivers, not active in Motive):\n" + "".join(f"  {ph} {members[ph]['name']}\n" for ph in gone))
+                f.write("REPLACE (old EZ number deleted):\n" + "".join(f"  {ph} {members[ph]['name']}\n" for ph in replace_old))
                 f.write("PHONE DIFFERS (left as is in EZ Texting):\n" + "".join(f"  {x}\n" for x in mismatch))
                 f.write("NEW IN MOTIVE BUT NO PHONE THERE:\n" + "".join(f"  {x}\n" for x in nophone))
             if MODE != "apply":
@@ -155,6 +165,9 @@ def main():
             if add:
                 upload(pg, add)
                 print(f"Uploaded {len(add)} new drivers into Drivers.")
+            if replace_old and REMOVE:
+                remove(pg, [members[ph]["id"] for ph in replace_old], "#deleteBtn")
+                print(f"Deleted {len(replace_old)} contacts with outdated numbers (new numbers uploaded above).")
             if gone and REMOVE:
                 if len(gone) > max(10, len(members) // 4):
                     raise RuntimeError(f"{len(gone)} removals is more than expected; not removing, please check")
