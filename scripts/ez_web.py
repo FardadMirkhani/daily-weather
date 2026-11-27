@@ -15,7 +15,11 @@ def login(pg):
     pg.locator("input[type=password]").first.fill(os.environ["EZ_PASS"])
     pg.get_by_role("button", name="Log In").click()
     pg.wait_for_url("**spa.eztexting.com/**", timeout=60000)
-    pg.wait_for_load_state("networkidle")
+    try:
+        pg.wait_for_load_state("networkidle", timeout=20000)
+    except Exception:
+        pass  # chat/analytics widgets can keep the network busy; the page is usable anyway
+    pg.wait_for_timeout(3000)
 
 def note(pg, i, label):
     pg.screenshot(path=f"{OUT}/{i:02d}-{label}.png", full_page=True)
@@ -34,7 +38,7 @@ def run_steps(pg, steps):
     for i, st in enumerate(steps, 1):
         k, v = next(iter(st.items()))
         try:
-            if k == "goto": pg.goto(v, wait_until="networkidle", timeout=60000)
+            if k == "goto": pg.goto(v, wait_until="domcontentloaded", timeout=60000); pg.wait_for_timeout(5000)
             elif k == "click": pg.get_by_text(v, exact=True).first.click(timeout=15000)
             elif k == "clickrole": pg.get_by_role(v[0], name=v[1]).first.click(timeout=15000)
             elif k == "css": pg.locator(v).first.click(timeout=15000)
