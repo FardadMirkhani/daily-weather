@@ -165,9 +165,10 @@ def main():
                 k = namekey(f, l)
                 if ph and ph in members:
                     continue
-                if k in member_keys:  # same driver, but the phone differs (or Motive has none): keep EZ's, tell Reza
+                if k in member_keys:  # same driver, but the phone differs (or Motive has none)
                     old = member_keys[k]
-                    if ph and members[old]["id"] in REPLACE_IDS:
+                    # Motive is the source of truth for phone numbers (Reza, Nov 27 2026): use Motive's number
+                    if ph and members[old]["id"] not in KEEP_IDS and old not in motive_phones:
                         add.append([ph, f, l]); replace_old.append(old)
                         continue
                     if ph:
@@ -184,6 +185,8 @@ def main():
             # an outdated contact whose new number was already uploaded on an earlier run
             replace_old += [ph for ph, m in members.items() if m["id"] in REPLACE_IDS and ph not in replace_old]
             print(f"Numbers to replace with Motive's: {len(replace_old)}")
+            if len(replace_old) > 10:
+                raise RuntimeError(f"{len(replace_old)} number changes at once is more than expected; not changing anything, please check")
             print(f"To add: {len(add)} | no longer active: {len(gone)} | phone differs between Motive and EZ: {len(mismatch)} | new driver with no phone in Motive: {len(nophone)}")
             with open(f"{OUT}/sync-report.txt", "w") as f:
                 f.write("ADD (active in Motive, not in Drivers):\n" + "".join(f"  {r[0]} {r[1]} {r[2]}\n" for r in add))
