@@ -113,7 +113,9 @@ def remove(pg, ids, button="#removeFromThisGroupBtn"):
                 continue
             row.scroll_into_view_if_needed()
             row.click(force=True)  # the chat bubble can sit on top of the row
-            pg.locator(f"#contacts-delete-{cid}").first.click(force=True, timeout=15000)
+            item = pg.locator(f"#contacts-delete-{cid}").first
+            item.wait_for(state="visible", timeout=15000)
+            item.click(timeout=15000)  # a real click; a forced one does not register on this menu
             pg.wait_for_timeout(1500)
             confirm(pg, 1)
             done += 1
