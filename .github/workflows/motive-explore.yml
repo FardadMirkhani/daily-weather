@@ -1,5 +1,9 @@
 name: Motive explore
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        default: "no"
 permissions:
   contents: write
 jobs:
@@ -9,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: python scripts/motive_explore.py
         env:
+          APPLY: ${{ inputs.apply }}
           MOTIVE_API_KEY: ${{ secrets.MOTIVE_API_KEY }}
       - name: Save encrypted results
         if: always()
