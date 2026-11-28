@@ -1,0 +1,20 @@
+name: Motive explore
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/motive_explore.py
+        env:
+          MOTIVE_API_KEY: ${{ secrets.MOTIVE_API_KEY }}
+      - name: Save encrypted results
+        if: always()
+        run: |
+          tar czf out.tgz out
+          openssl smime -encrypt -binary -aes256 -in out.tgz -outform DER -out out.enc scripts/explore-cert.pem
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan motive-out && git rm -rqf --cached . && git add -f out.enc
+          git commit -qm "motive ${{ github.run_id }}" && git push -qf origin motive-out
